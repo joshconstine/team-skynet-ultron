@@ -21,9 +21,17 @@ using namespace Pololu3piPlus32U4;
 
 class MyRobot{
   public:
-    MyRobot();
+    MyRobot(float baseSpeed = 0.4); // Constructor with default base speed
+    void forward(float distance, float speed = -1);
+    void backward(float distance, float speed = -1);
+    void turn_left(float duration, float speed = -1);
+    void turn_right(float duration, float speed = -1);
+    void halt();
     
   private:
+    float baseSpeed;  // Base speed in m/s
+    Motors motors;
+    short int convertSpeed(float speed);  // Converts m/s to motor input speed
     
 };
 
