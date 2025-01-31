@@ -58,6 +58,32 @@ void MyRobot::turn_right(float duration, float speed) {
 }
 
 
+// the offset should be   0.1 < offset < 1 for how tight the turn should be.
+void MyRobot::turn_left_and_forward(float duration, float speed,  double offset) {
+    if (speed < 0) speed = baseSpeed;
+    short int motorSpeed = convertSpeed(speed);
+    motors.setSpeeds(motorSpeed * offset, motorSpeed);
+
+    delay(static_cast<int>(duration * 1000));
+    halt();
+}
+
+
+
+// the offset should be   0.1 < offset < 1 for how tight the turn should be.
+void MyRobot::turn_right_and_forward(float duration, float speed,  double offset) {
+    if (speed < 0) speed = baseSpeed;
+    short int motorSpeed = convertSpeed(speed);
+    motors.setSpeeds(motorSpeed, offset * motorSpeed);
+
+    delay(static_cast<int>(duration * 1000));
+    halt();
+}
+
+
+
+
+
 void MyRobot::halt() {
     motors.setSpeeds(0, 0);
     delay(500);  // Small delay to ensure the robot halts completely

@@ -26,6 +26,8 @@ class MyRobot{
     void backward(float distance, float speed = -1);
     void turn_left(float duration, float speed = -1);
     void turn_right(float duration, float speed = -1);
+    void turn_left_and_forward(float duration, float speed = -1, double offset = .1);
+    void turn_right_and_forward(float duration, float speed = -1, double offset = .1);
     void halt();
     
   private:
