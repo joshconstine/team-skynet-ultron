@@ -47,13 +47,37 @@ void setup() {
   //Move Sonar to desired direction using Servo
 }
 
+double CalculateLeftSpeed(double Pout){
+  double leftSpeed = base_speed + Pout;
+  return leftSpeed;
+}
+
+double CalculateRightSpeed(double Pout){
+  double rightSpeed = base_speed - Pout;
+  return rightSpeed;
+}
 void loop() {
   //DO NOTE DELETE CODE AFTER EACH TASK, COMMENT OUT INSTEAD
   wallDist = sonar.readDist();
 
   //UNCOMMENT AFTER IMPLEMENTING Pcontroller
   //Pout = Pcontroller.update(wallDist, distFromWall); //uncomment if using Pcontroller 
+  leftSpeed = base_speed + Pout;
+  rightSpeed = base_speed - Pout;
+ 
+  motors.setSpeeds(leftSpeed, rightSpeed);
 
+  // Debugging (print values to Serial Monitor)
+  Serial.print("Wall Distance: ");
+  Serial.print(wallDist);
+  Serial.print(" | Pout: ");
+  Serial.print(Pout);
+  Serial.print(" | Left Speed: ");
+  Serial.print(leftSpeed);
+  Serial.print(" | Right Speed: ");
+  Serial.println(rightSpeed);
+
+  delay(100);
   //(LAB 4 - TASK 3.1) IMPLEMENT PCONTROLLER 
   
   /*FIRST GO TO Pcontroller.h AND ADD PRIVATE VARIABLES NEEDED.
@@ -67,6 +91,7 @@ void loop() {
   TO TEST (B-D).
   Hint: Also use baseSpeed when setting motor speeds*/
 
+  
   //Also print outputs to serial monitor for testing purposes
 
 
