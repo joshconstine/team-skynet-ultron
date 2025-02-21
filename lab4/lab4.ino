@@ -29,7 +29,7 @@ using namespace Pololu3piPlus32U4;
 #define minOutput -100
 #define maxOutput 100
 #define kp 1
-#define base_speed 50
+#define base_speed 80
 
 Motors motors;
 Servo servo;
@@ -51,27 +51,21 @@ void setup() {
   
   delay(40);
   //Move Sonar to desired direction using Servo
-  servo.write(90);
+  servo.write(180);
 }
 
-double CalculateLeftSpeed(double Pout){
-  double leftSpeed = base_speed + Pout;
-  return leftSpeed;
-}
 
-double CalculateRightSpeed(double Pout){
-  double rightSpeed = base_speed - Pout;
-  return rightSpeed;
-}
 void loop() {
   //DO NOTE DELETE CODE AFTER EACH TASK, COMMENT OUT INSTEAD
   wallDist = sonar.readDist();
 
   //UNCOMMENT AFTER IMPLEMENTING Pcontroller
   Pout = Pcontroller.update(wallDist, distFromWall); //uncomment if using Pcontroller 
-  leftSpeed = base_speed + Pout;
-  rightSpeed = base_speed - Pout;
+  leftSpeed = base_speed - Pout;
+  rightSpeed = base_speed + Pout;
  
+
+  
   motors.setSpeeds(leftSpeed, rightSpeed);
 
   // Debugging (print values to Serial Monitor)
