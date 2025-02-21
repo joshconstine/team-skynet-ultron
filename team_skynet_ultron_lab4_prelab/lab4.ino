@@ -24,7 +24,6 @@ using namespace Pololu3piPlus32U4;
 #define w 9.6
 #define gearRatio 75
 
-
 //Update kp and kd based on your testing
 #define minOutput -100
 #define maxOutput 100
@@ -40,18 +39,12 @@ Pcontroller Pcontroller (kp, minOutput, maxOutput);
 const double distFromWall=10.0; // Goal distance from wall (cm)
 
 double wallDist;
-double Pout;
-int leftSpeed;
-int rightSpeed;
-
 
 void setup() {
   Serial.begin(9600);
   servo.attach(5);
-  
   delay(40);
   //Move Sonar to desired direction using Servo
-  servo.write(90);
 }
 
 double CalculateLeftSpeed(double Pout){
@@ -68,7 +61,7 @@ void loop() {
   wallDist = sonar.readDist();
 
   //UNCOMMENT AFTER IMPLEMENTING Pcontroller
-  Pout = Pcontroller.update(wallDist, distFromWall); //uncomment if using Pcontroller 
+  //Pout = Pcontroller.update(wallDist, distFromWall); //uncomment if using Pcontroller 
   leftSpeed = base_speed + Pout;
   rightSpeed = base_speed - Pout;
  
