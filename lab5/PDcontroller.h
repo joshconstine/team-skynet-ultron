@@ -12,11 +12,11 @@ class PDcontroller{
     //Add private variables here
     //Hint: You are adding 4 more variables to the
     //      ones from Pcontroller
-    float kp;
-    float kd;
-    double _minOutput, _maxOutput
+    float _kp;
+    float _kd;
+    double _minOutput, _maxOutput;
     double _error;
-    double _Pout
+    double _Pout;
 	
 };
 

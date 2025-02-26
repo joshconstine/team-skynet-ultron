@@ -43,7 +43,7 @@ void loop() {
 
 
   //UNCOMMENT AFTER IMPLEMENTING PDcontroller
-  PDout = PDcontroller.update(wallDist, distFromWall); //uncomment if using PDcontroller 
+  // PDout = PDcontroller.update(wallDist, distFromWall); //uncomment if using PDcontroller 
 
   //(LAB 5 - TASK 3.1) IMPLEMENT PDCONTROLLER 
   
