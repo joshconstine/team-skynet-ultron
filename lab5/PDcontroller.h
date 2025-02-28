@@ -15,7 +15,7 @@ class PDcontroller{
     float _kp;
     float _kd;
     double _minOutput, _maxOutput;
-    double _error;
+    double _error, _previousError, _previousTime;
     double _Pout;
 
    // i used the following

@@ -8,6 +8,8 @@ PDcontroller::PDcontroller(float kp, float kd, double minOutput, double maxOutpu
   _kd = kd;
   _minOutput = minOutput;
   _maxOutput = maxOutput;
+  _previousError = 0.0;
+  _previousTime = 0.0;
 }
 
 double PDcontroller::update(double value, double target_value){
