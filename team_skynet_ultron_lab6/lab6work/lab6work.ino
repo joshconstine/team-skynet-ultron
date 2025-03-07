@@ -22,8 +22,8 @@ Encoders encoders;
 //Update kp, kd, and ki based on your testing
 #define minOutput -100
 #define maxOutput 100
-#define kp 0.8  
-#define kd 0.2  
+#define kp 180  
+#define kd 20  
 #define ki 0    
 #define clamp_i 0  
 
@@ -64,6 +64,8 @@ void loop() {
   deltaL = encoders.getCountsAndResetLeft();
   deltaR = encoders.getCountsAndResetRight();
 
+  error_theta = goal_theta - theta;
+
   // Increment total encoder cound
   encCountsLeft += deltaL;
   encCountsRight += deltaR;  
@@ -75,7 +77,7 @@ void loop() {
   if (error_theta < -3.14159) error_theta += 2 * 3.14159;
 
   // Get PD controller output based on error
-  PDout = pdcontroller.update(goal_theta, error_theta);
+  PDout = pdcontroller.update(theta, goal_theta);
 
   int16_t leftSpeed = constrain(base_speed - PDout, minOutput, maxOutput);
   int16_t rightSpeed = constrain(base_speed + PDout, minOutput, maxOutput);
