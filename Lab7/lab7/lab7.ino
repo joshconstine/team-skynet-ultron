@@ -49,6 +49,8 @@ const float goal_theta = 3.14;
 //odometry
 int16_t deltaL=0;
 int16_t deltaR=0;
+int16_t leftSpeed=0;
+int16_t rightSpeed=0;
 int16_t encCountsLeft = 0, encCountsRight = 0;
 float x = 0.0, y = 0.0, theta = 0.0;
 
@@ -101,10 +103,16 @@ void loop() {
 
   prev_error_theta = error_theta;
 
+  leftSpeed = base_speedAng - PIDout_theta;
+  rightSpeed = base_speedAng + PIDout_theta;
   // Move robot
-  motors.setSpeeds(base_speedAng - PIDout_theta, base_speedAng + PIDout_theta);
+  motors.setSpeeds(leftSpeed, rightSpeed);
 
   // Print Debug Information
+   Serial.print("Left speed: ");
+  Serial.print(leftSpeed);
+  Serial.print(" RightSpeed: ");
+  Serial.print(rightSpeed);
   Serial.print("X: ");
   Serial.print(x);
   Serial.print(" Y: ");
