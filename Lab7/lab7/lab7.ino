@@ -1,6 +1,8 @@
 #include <Pololu3piPlus32U4.h>
 #include "printOLED.h"
 #include "odometry.h"
+#include "PIDcontroller.h"
+
 //#include "odometry.h" //If using odometry, import odometry.h and odometry.cpp
 //#include "PIDcontroller.h" //Import your PIDcontroller.h and PIDcontroller.cpp from last lab then uncomment
 using namespace Pololu3piPlus32U4;
@@ -44,7 +46,7 @@ Encoders encoders;
 // Given goals in cm and radians
 const float goal_x = 1.0;
 const float goal_y = 1.0;
-const float goal_theta = 3.14;
+const float goal_theta = 3.14 / 4;
 
 //odometry
 int16_t deltaL=0;
@@ -59,9 +61,12 @@ float x = 0.0, y = 0.0, theta = 0.0;
 double PIDout_theta, PIDout_distance; //Output variables for your controllers
 double angle_to_goal, actual_angle; //Keeping track of angle
 double dist_to_goal = 0.0; //Keeping track of robot's distance to goal location
+#define clamp_i 50  
+#define minOutput -300
+#define maxOutput 300
 
 Odometry odometry(diaL, diaR, w, nL, nR, gearRatio, DEAD_RECKONING);
-
+PIDcontroller pidcontroller(kpVel ,kiVel,kdVel, minOutput, maxOutput, clamp_i);
 void setup() {
   Serial.begin(9600);
   
