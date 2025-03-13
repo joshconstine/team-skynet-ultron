@@ -10,7 +10,7 @@ Encoders encoders;
 
 // Odometry Parameters
 #define diaL 3.2
-#define diaR  3.2
+#define diaR 3.2
 #define nL 12
 #define nR 12
 #define w 9.6
@@ -20,7 +20,7 @@ Encoders encoders;
 // PID for Angle Correction
 #define minOutputAng -100
 #define maxOutputAng 100
-#define kpAng 1.5
+#define kpAng 0.5
 #define kdAng 0.5
 #define kiAng 0.01
 #define clamp_iAng 50
@@ -38,7 +38,7 @@ Encoders encoders;
 // Goal Position
 const float goal_x = 1.0;
 const float goal_y = 1.0;
-const float goal_theta = 3.14 / 4;
+const float goal_theta = -.785; // Goal theta (orientation)
 
 // Odometry Variables
 int16_t deltaL = 0;
@@ -58,6 +58,10 @@ double dist_to_goal = 0.0;
 Odometry odometry(diaL, diaR, w, nL, nR, gearRatio, DEAD_RECKONING);
 PIDcontroller pid_angle(kpAng, kiAng, kdAng, minOutputAng, maxOutputAng, clamp_iAng);
 PIDcontroller pid_velocity(kpVel, kiVel, kdVel, minOutputVel, maxOutputVel, clamp_iVel);
+
+// State variable for the robot's current phase (rotation or translation)
+enum RobotState { ROTATE, MOVE_FORWARD };
+RobotState currentState = ROTATE;
 
 void setup() {
     Serial.begin(9600);
@@ -91,43 +95,52 @@ void loop() {
         return;
     }
 
-    Serial.print("actual angle: ");
-    Serial.print(actual_angle);
-    Serial.print(" angle to goal: ");
-    Serial.print(angle_to_goal);
-    Serial.print(" dist to goal: ");
-        Serial.print(dist_to_goal);
-        Serial.println();
-    // PID Control for Angle Correction
-    PIDout_theta = pid_angle.update(actual_angle, angle_to_goal);
+    // Rotation Phase: Rotate to the goal's orientation (goal_theta)
+    if (currentState == ROTATE) {
+        // Compute the angle error to the goal orientation
+        double angle_error = goal_theta - actual_angle;
+        angle_error = atan2(sin(angle_error), cos(angle_error)); // Normalize angle error
 
-    // PID Control for Velocity
-    PIDout_distance = pid_velocity.update(0, dist_to_goal);
+        // PID Control for Angle Correction
+        PIDout_theta = pid_angle.update(actual_angle, goal_theta);
 
-    // Compute motor speeds
-    leftSpeed = PIDout_distance - PIDout_theta;
-    rightSpeed = PIDout_distance + PIDout_theta;
+        // Apply PID correction and rotate
+        leftSpeed = base_speedAng + PIDout_theta;
+        rightSpeed = -base_speedAng - PIDout_theta;
 
-  Serial.print("left Speed: ");
-    Serial.print(leftSpeed);
-    Serial.print(" Right Speed: ");
-    Serial.print(rightSpeed);
-    // Set motor speeds
-    motors.setSpeeds(leftSpeed, rightSpeed);
+        // If angle error is small enough, switch to MOVE_FORWARD state
+        if (fabs(angle_error) < 0.05) {
+            currentState = MOVE_FORWARD;
+        }
+    }
+    // Translation Phase: Move forward towards the goal position
+    else if (currentState == MOVE_FORWARD) {
+        // PID Control for Distance (velocity)
+        PIDout_distance = pid_velocity.update(0, dist_to_goal);
+
+        // Adjust motor speeds with base velocity speed
+        double velocity_adjustment = constrain(base_speedVel + PIDout_distance, minOutputVel, maxOutputVel);
+        
+        leftSpeed = velocity_adjustment - PIDout_theta;
+        rightSpeed = velocity_adjustment + PIDout_theta;
+
+        // Clamp final motor speeds
+        leftSpeed = constrain(leftSpeed, minOutputVel, maxOutputVel);
+        rightSpeed = constrain(rightSpeed, minOutputVel, maxOutputVel);
+    }
 
     // Debugging Output
-    Serial.print("X: ");
-    Serial.print(x);
-    Serial.print(" Y: ");
-    Serial.print(y);
-    Serial.print(" Theta: ");
-    Serial.print(theta);
-    Serial.print(" Error Theta: ");
-    Serial.print(error_theta);
-    Serial.print(" PID Out Theta: ");
-    Serial.print(PIDout_theta);
-    Serial.print(" PID Out Distance: ");
-    Serial.println(PIDout_distance);
+    Serial.print("X: "); Serial.print(x);
+    Serial.print(" Y: "); Serial.print(y);
+    Serial.print(" Theta: "); Serial.print(theta);
+    Serial.print(" Error Theta: "); Serial.print(error_theta);
+    Serial.print(" PID Out Theta: "); Serial.print(PIDout_theta);
+    Serial.print(" PID Out Distance: "); Serial.print(PIDout_distance);
+    Serial.print(" Left Speed: "); Serial.print(leftSpeed);
+    Serial.print(" Right Speed: "); Serial.println(rightSpeed);
+
+    // Set motor speeds
+    motors.setSpeeds(leftSpeed, rightSpeed);
 
     delay(100);
 }
