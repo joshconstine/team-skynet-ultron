@@ -3,14 +3,12 @@
 #include "odometry.h"
 #include "PIDcontroller.h"
 
-//#include "odometry.h" //If using odometry, import odometry.h and odometry.cpp
-//#include "PIDcontroller.h" //Import your PIDcontroller.h and PIDcontroller.cpp from last lab then uncomment
 using namespace Pololu3piPlus32U4;
 
 Motors motors;
 Encoders encoders;
 
-//Odometry Parameters
+// Odometry Parameters
 #define diaL 3.2
 #define diaR  3.2
 #define nL 12
@@ -19,145 +17,113 @@ Encoders encoders;
 #define gearRatio 75
 #define DEAD_RECKONING false
 
-//Update kp, kd, and ki based on your testing (First PIDcontroller for angle)
+// PID for Angle Correction
 #define minOutputAng -100
 #define maxOutputAng 100
-#define kpAng 1.5 //Tune Kp here
-#define kdAng 0.5 //Tune Kd here
-#define kiAng 0.01 //Tune Ki here
-#define clamp_iAng 50 //Tune ki integral clamp here
+#define kpAng 1.5
+#define kdAng 0.5
+#define kiAng 0.01
+#define clamp_iAng 50
 #define base_speedAng 50
 
-//Update kp, kd, and ki based on your testing (Second PIDcontroller for velocity) (Task 2.3)
+// PID for Velocity Control
 #define minOutputVel -100
 #define maxOutputVel 100
-#define kpVel 2.0 //Tune Kp here
-#define kdVel 0.3 //Tune Kd here
-#define kiVel 0.02 //Tune Ki here
-#define clamp_iVel 50 //Tune ki integral clamp here
+#define kpVel 2.0
+#define kdVel 0.3
+#define kiVel 0.02
+#define clamp_iVel 50
 #define base_speedVel 80
 
-
-//Odometry odometry(diaL, diaR, w, nL, nR, gearRatio, DEAD_RECKONING); //Uncomment if using odometry class
-//PIDcontroller pidcontroller(kpAng, kiAng, kdAng, minOutputAng, maxOutputAng, clamp_iAng); //Uncomment after you import PIDController
-//Write your second PIDcontroller object here (Task 2.3)
-
-//Feel free to use this in your PD/PID controller for target values
-// Given goals in cm and radians
+// Goal Position
 const float goal_x = 1.0;
 const float goal_y = 1.0;
 const float goal_theta = 3.14 / 4;
 
-//odometry
-int16_t deltaL=0;
-int16_t deltaR=0;
-int16_t leftSpeed=0;
-int16_t rightSpeed=0;
+// Odometry Variables
+int16_t deltaL = 0;
+int16_t deltaR = 0;
+int16_t leftSpeed = 0;
+int16_t rightSpeed = 0;
 int16_t encCountsLeft = 0, encCountsRight = 0;
 float x = 0.0, y = 0.0, theta = 0.0;
 
-//Lab 7
-//Note: Here are some suggested variables to use for your code.
-double PIDout_theta, PIDout_distance; //Output variables for your controllers
-double angle_to_goal, actual_angle; //Keeping track of angle
-double dist_to_goal = 0.0; //Keeping track of robot's distance to goal location
-#define clamp_i 50  
-#define minOutput -300
-#define maxOutput 300
+// PID Output Variables
+double PIDout_theta, PIDout_distance;
+double angle_to_goal, actual_angle;
+double dist_to_goal = 0.0;
+#define goal_threshold 0.5 // Stop when within 0.5 cm of the goal
 
+// Initialize Odometry and PID Controllers
 Odometry odometry(diaL, diaR, w, nL, nR, gearRatio, DEAD_RECKONING);
-PIDcontroller pidcontroller(kpVel ,kiVel,kdVel, minOutput, maxOutput, clamp_i);
+PIDcontroller pid_angle(kpAng, kiAng, kdAng, minOutputAng, maxOutputAng, clamp_iAng);
+PIDcontroller pid_velocity(kpVel, kiVel, kdVel, minOutputVel, maxOutputVel, clamp_iVel);
+
 void setup() {
-  Serial.begin(9600);
-  
+    Serial.begin(9600);
 }
 
 void loop() {
+    // Read encoder data
+    deltaL = encoders.getCountsAndResetLeft();
+    deltaR = encoders.getCountsAndResetRight();
+    encCountsLeft += deltaL;
+    encCountsRight += deltaR;
 
-  //Use this code if you are using odometry. Comment out if you are not.
-  //If using, consider turning this into its own function for repeated use.
-  // Read data from encoders
-  deltaL = encoders.getCountsAndResetLeft();
-  deltaR = encoders.getCountsAndResetRight();
+    // Update odometry
+    odometry.update_odom(encCountsLeft, encCountsRight, x, y, theta);
 
-  // Increment total encoder cound
-  encCountsLeft += deltaL;
-  encCountsRight += deltaR;  
+    // Compute angle to goal
+    angle_to_goal = atan2(goal_y - y, goal_x - x);
+    actual_angle = theta;
 
-  odometry.update_odom(encCountsLeft,encCountsRight, x, y, theta); //calculate robot's position
+    // Normalize angle error to [-π, π]
+    double error_theta = angle_to_goal - actual_angle;
+    error_theta = atan2(sin(error_theta), cos(error_theta)); // Normalize
 
-  angle_to_goal = atan2(goal_y - y, goal_x - x);
-  actual_angle = theta;
+    // Compute distance to goal
+    dist_to_goal = sqrt(pow(goal_x - x, 2) + pow(goal_y - y, 2));
 
-  double error_theta = angle_to_goal - actual_angle; // / Compute error
+    // Stop if close enough to the goal
+    if (dist_to_goal < goal_threshold) {
+        motors.setSpeeds(0, 0);
+        Serial.println("Goal Reached!");
+        return;
+    }
 
-  // PID for angle correction
-  static double prev_error_theta = 0;
-  static double integral_theta = 0;
-  
-  integral_theta += error_theta;
-  if (integral_theta > clamp_iAng) integral_theta = clamp_iAng;
-  if (integral_theta < -clamp_iAng) integral_theta = -clamp_iAng;
+    Serial.print("actual angle: ");
+    Serial.print(actual_angle);
+    Serial.print(" angle to goal: ");
+    Serial.print(angle_to_goal);
+    Serial.print(" dist to goal: ");
+        Serial.print(dist_to_goal);
+        Serial.println();
+    // PID Control for Angle Correction
+    PIDout_theta = pid_angle.update(actual_angle, angle_to_goal);
 
-  double derivative_theta = error_theta - prev_error_theta;
-  PIDout_theta = kpAng * error_theta + kiAng * integral_theta + kdAng * derivative_theta;
+    // PID Control for Velocity
+    PIDout_distance = pid_velocity.update(0, dist_to_goal);
 
-  // Clamp PID output
-  if (PIDout_theta > maxOutputAng) PIDout_theta = maxOutputAng;
-  if (PIDout_theta < minOutputAng) PIDout_theta = minOutputAng;
+    // Compute motor speeds
+    leftSpeed = PIDout_distance - PIDout_theta;
+    rightSpeed = PIDout_distance + PIDout_theta;
 
-  prev_error_theta = error_theta;
+    // Set motor speeds
+    motors.setSpeeds(leftSpeed, rightSpeed);
 
-  leftSpeed = base_speedAng - PIDout_theta;
-  rightSpeed = base_speedAng + PIDout_theta;
-  // Move robot
-  motors.setSpeeds(leftSpeed, rightSpeed);
+    // Debugging Output
+    Serial.print("X: ");
+    Serial.print(x);
+    Serial.print(" Y: ");
+    Serial.print(y);
+    Serial.print(" Theta: ");
+    Serial.print(theta);
+    Serial.print(" Error Theta: ");
+    Serial.print(error_theta);
+    Serial.print(" PID Out Theta: ");
+    Serial.print(PIDout_theta);
+    Serial.print(" PID Out Distance: ");
+    Serial.println(PIDout_distance);
 
-  // Print Debug Information
-   Serial.print("Left speed: ");
-  Serial.print(leftSpeed);
-  Serial.print(" RightSpeed: ");
-  Serial.print(rightSpeed);
-  Serial.print("X: ");
-  Serial.print(x);
-  Serial.print(" Y: ");
-  Serial.print(y);
-  Serial.print(" Theta: ");
-  Serial.print(theta);
-  Serial.print(" Error: ");
-  Serial.print(error_theta);
-  Serial.print(" PID Out: ");
-  Serial.println(PIDout_theta);
-
-  delay(100);
-
-  //Lab 7
-  //Note: To help with testing, print the theta and PID outputs to serial monitor.
-
-  /*TASK 2.1
-  Move your PIDController.h and PIDController.cpp files here to use for the following tasks.
-  Also move your odometry.h and odometry.cpp if you decide to use it for 
-  measuring the angle of your robot.
-  
-  Utilize your PIDController to go to a specific location.
-  
-  Hint: Utilize these functions to find your thetas
-  angle_to_goal = atan2(?, ?);
-  //atan2(sin(x),cos(x))=x on [-π, π) and not on [0,2π) 
-  //=> we do this to make sure the range of actual_angle and goal_to_angle is the same
-  actual_angle = atan2(?, ?);
-  
-  Write your code below and comment out when moving to the next task.*/
-
-  /*TASK 2.2
-  Improve the baseline solution by telling the robot to stop when it gets close 
-  enough to the goal.
-  Write your code below and comment out when moving to the next task.*/
-
-  /*TASK 2.3
-  Improve the solution further by using a second PID controller to control the velocity
-  as it goes towards the goal.
-  Write your code below.*/
-
-
+    delay(100);
 }
