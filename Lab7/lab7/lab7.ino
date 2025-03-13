@@ -78,7 +78,9 @@ void loop() {
     odometry.update_odom(encCountsLeft, encCountsRight, x, y, theta);
 
     // Compute angle to goal
-    angle_to_goal = atan2(goal_y - y, goal_x - x);
+// Compute angle to goal
+angle_to_goal = atan2(goal_y - y, goal_x - x);
+Serial.print("Angle to Goal: "); Serial.println(angle_to_goal);
     actual_angle = theta;
 
     // Normalize angle error to [-π, π]
@@ -114,20 +116,33 @@ void loop() {
         }
     }
     // Translation Phase: Move forward towards the goal position
-    else if (currentState == MOVE_FORWARD) {
-        // PID Control for Distance (velocity)
-        PIDout_distance = pid_velocity.update(0, dist_to_goal);
+   // Translation Phase: Move forward towards the goal position
+// Translation Phase: Move forward towards the goal position
+else if (currentState == MOVE_FORWARD) {
+    // PID Control for Distance (velocity)
+    PIDout_distance = pid_velocity.update(0, dist_to_goal);
 
-        // Adjust motor speeds with base velocity speed
-        double velocity_adjustment = constrain(base_speedVel + PIDout_distance, minOutputVel, maxOutputVel);
-        
-        leftSpeed = velocity_adjustment - PIDout_theta;
-        rightSpeed = velocity_adjustment + PIDout_theta;
+    // Adjust motor speeds with base velocity speed
+    double velocity_adjustment = constrain(base_speedVel + PIDout_distance, minOutputVel, maxOutputVel);
+    
+    leftSpeed = velocity_adjustment - PIDout_theta;
+    rightSpeed = velocity_adjustment + PIDout_theta;
 
-        // Clamp final motor speeds
-        leftSpeed = constrain(leftSpeed, minOutputVel, maxOutputVel);
-        rightSpeed = constrain(rightSpeed, minOutputVel, maxOutputVel);
+    // Clamp final motor speeds
+    leftSpeed = constrain(leftSpeed, minOutputVel, maxOutputVel);
+    rightSpeed = constrain(rightSpeed, minOutputVel, maxOutputVel);
+
+    // Calculate the distance to the goal using the robot's current position
+    dist_to_goal = sqrt(pow(goal_x - x, 2) + pow(goal_y - y, 2)); // Update dist_to_goal based on current x, y position
+
+    // Check if the robot is within the goal threshold and also slow enough to stop
+    if (dist_to_goal < goal_threshold && fabs(leftSpeed) < 5 && fabs(rightSpeed) < 5) {
+        motors.setSpeeds(0, 0);  // Stop the motors when close to the goal and slow enough
+        Serial.println("Goal Reached!");
+        return;  // End the movement loop
     }
+}
+
 
     // Debugging Output
     Serial.print("X: "); Serial.print(x);
