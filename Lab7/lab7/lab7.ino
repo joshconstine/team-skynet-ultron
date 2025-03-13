@@ -108,6 +108,10 @@ void loop() {
     leftSpeed = PIDout_distance - PIDout_theta;
     rightSpeed = PIDout_distance + PIDout_theta;
 
+  Serial.print("left Speed: ");
+    Serial.print(leftSpeed);
+    Serial.print(" Right Speed: ");
+    Serial.print(rightSpeed);
     // Set motor speeds
     motors.setSpeeds(leftSpeed, rightSpeed);
 

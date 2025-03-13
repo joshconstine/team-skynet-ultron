@@ -17,22 +17,12 @@ PIDcontroller::PIDcontroller(float kp, float ki, float kd, double minOutput, dou
   _previousError = 0;
   _previousTime = millis();
 }
-
-double PIDcontroller::update(double value, double target_value){
-  /*Now copy and paste your PD controller. To implement I component,
-  keep track of accumulated error, use your accumulated error in the constrain
-  function for the integral, multiply ki by your integral, then add your p, d,
-  and i components.
-  
-  Note: Do not just put all of the integral code at the end of PD component. Think
-  about step by step how you can integrate these parts into your PDController
-  code.*/
-
+double PIDcontroller::update(double value, double target_value) {
   double error = target_value - value;
 
   unsigned long currentTime = millis();
   double deltaTime = (currentTime - _previousTime) / 1000.0;  // Convert to seconds
-  
+
   double Pout = _kp * error;
 
   _integral += error * deltaTime;
@@ -46,7 +36,20 @@ double PIDcontroller::update(double value, double target_value){
   double output = Pout + Iout + Dout;
   output = constrain(output, _minOutput, _maxOutput);
 
+  // Logging for debugging
+  Serial.print("Error: ");
+  Serial.print(error);
+  Serial.print(" | Pout: ");
+  Serial.print(Pout);
+  Serial.print(" | Iout: ");
+  Serial.print(Iout);
+  Serial.print(" | Dout: ");
+  Serial.print(Dout);
+  Serial.print(" | Output: ");
+  Serial.println(output);
+
   _previousError = error;
   _previousTime = currentTime;
-  
+
+  return output;  // Ensure the function returns the computed output
 }
