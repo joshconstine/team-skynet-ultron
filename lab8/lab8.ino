@@ -120,7 +120,7 @@ void loop() {
   lineSensors.read(lineSensorValues);
 
   // Calculate the position of the line using the weighted sum method
-  int lineCenter = 2000;
+  int lineCenter = 0;
   int totalWeight = 0;
 
   for (int i = 0; i < 5; i++) {
@@ -128,15 +128,9 @@ void loop() {
     totalWeight += lineSensorValues[i];
   }
 
-  // Avoid division by zero
-  if (totalWeight != 0) {
-    lineCenter /= totalWeight;
-  } else {
-    lineCenter = 2; // Default to center position if no sensor detects the line
-  }
+robotPosition = lineCenter / 5;
 
-  // Calculate robot's position relative to the line center (ideal is 0, meaning perfectly on the line)
-  int robotPosition = lineCenter - 2;  // Adjust the range to [-2, 2] for a 5-sensor setup
+
   
  // Print out the computed line center and robot position
   Serial.print("lineCenter: ");
@@ -145,7 +139,7 @@ void loop() {
   Serial.println(robotPosition);
 
   // Use the PD controller to compute the control output
-  double controlOutput = pd_line.update(robotPosition, 0);  // Target value is 0
+  double controlOutput = pd_line.update(robotPosition, 2000);  // Target value is 2000
 
   // Print out the PD controller output
   Serial.print("controlOutput: ");
@@ -168,4 +162,5 @@ void loop() {
 
   // Set the motor speeds
   motors.setSpeeds(leftSpeed, rightSpeed);
+  delay(100);
 }
