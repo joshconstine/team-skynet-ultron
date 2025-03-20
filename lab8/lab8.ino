@@ -27,30 +27,83 @@ int16_t robotPosition;  // This will be updated to keep track of robot's positio
 
 void calibrateSensors()
 {
-    Serial.println("Starting sensor calibration...");
+  Serial.println("Starting sensor calibration...");
 
-  // Implement calibration for IR Sensors
-  // Move the robot in a sweeping motion to calibrate sensors.
-  
-  // Example: Turn left to calibrate one side, then turn right to calibrate the other
-  for (int i = 0; i < 5; i++) {
-    lineSensorValues[i] = 0;  // Start with all sensors reading 0.
+  // Clear old values (optional for your flow)
+  for (int i = 0; i < 5; i++)
+  {
+    lineSensorValues[i] = 0;
   }
+
+  // --- Turn 90° LEFT ---
+  Serial.println("Turning 90° LEFT...");
+  motors.setSpeeds(-calibrationSpeed, calibrationSpeed);
+  delay(3500); // Adjust this until you get a real 90° turn
+  motors.setSpeeds(0, 0);  
+  Serial.println("Finished 90° LEFT turn. Reading sensors...");
   
-  // Calibration sweep: Turn left, right, and read the values
+  // Read and print sensor values at 90° left orientation
+  lineSensors.read(lineSensorValues);
   for (int i = 0; i < 5; i++) {
-    Serial.print("Sensor ");
+    Serial.print("  Sensor ");
     Serial.print(i);
     Serial.print(": ");
     Serial.println(lineSensorValues[i]);
-    lineSensorValues[i] = analogRead(i);  // Read the sensor value for each sensor
   }
-  // Optionally, use these values to compute a baseline sensor calibration for the robot.
 
-  // Move the robot a bit after calibration
-  motors.setSpeeds(0, 0); // Stop motors after calibration
+  // --- Return to CENTER from Left (another 90° turn right) ---
+  Serial.println("Returning to CENTER orientation...");
+  motors.setSpeeds(calibrationSpeed, -calibrationSpeed);
+  delay(3500); 
+  motors.setSpeeds(0, 0);  
+  Serial.println("Returned to CENTER. Reading sensors...");
+
+  lineSensors.read(lineSensorValues);
+  for (int i = 0; i < 5; i++) {
+    Serial.print("  Sensor ");
+    Serial.print(i);
+    Serial.print(": ");
+    Serial.println(lineSensorValues[i]);
+  }
+
+  // --- Turn 90° RIGHT from center ---
+  Serial.println("Turning 90° RIGHT...");
+  motors.setSpeeds(calibrationSpeed, -calibrationSpeed);
+  delay(3500); // Adjust this for a true 90° turn
+  motors.setSpeeds(0, 0);
+  Serial.println("Finished 90° RIGHT turn. Reading sensors...");
+
+  lineSensors.read(lineSensorValues);
+  for (int i = 0; i < 5; i++) {
+    Serial.print("  Sensor ");
+    Serial.print(i);
+    Serial.print(": ");
+    Serial.println(lineSensorValues[i]);
+  }
+
+  // --- Return to CENTER from Right (another 90° turn left) ---
+  Serial.println("Returning to CENTER orientation...");
+  motors.setSpeeds(-calibrationSpeed, calibrationSpeed);
+  delay(3500); 
+  motors.setSpeeds(0, 0);
+  Serial.println("Returned to CENTER. Reading sensors...");
+
+  lineSensors.read(lineSensorValues);
+  for (int i = 0; i < 5; i++) {
+    Serial.print("  Sensor ");
+    Serial.print(i);
+    Serial.print(": ");
+    Serial.println(lineSensorValues[i]);
+  }
+
+  // Final stop
+  motors.setSpeeds(0, 0);
+
+  Serial.println("Calibration finished.");
   delay(1000);
 }
+
+
 
 void setup() {
   Serial.begin(9600);
@@ -67,7 +120,7 @@ void loop() {
   lineSensors.read(lineSensorValues);
 
   // Calculate the position of the line using the weighted sum method
-  int lineCenter = 0;
+  int lineCenter = 2000;
   int totalWeight = 0;
 
   for (int i = 0; i < 5; i++) {
@@ -112,7 +165,7 @@ void loop() {
   Serial.print(" | Right Speed: ");
   Serial.println(rightSpeed);
 
-  
+
   // Set the motor speeds
   motors.setSpeeds(leftSpeed, rightSpeed);
 }
