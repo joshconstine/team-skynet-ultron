@@ -16,8 +16,8 @@ Sonar sonar(4);
 #define baseSpeed 100
 #define kp_line 2.0    // Proportional gain for line following
 #define kd_line 1.0    // Derivative gain for line following
-#define kp_obs 0.8     // Proportional gain for obstacle avoidance
-#define kd_obs 0.2     // Derivative gain for obstacle avoidance
+#define kp_obs 55      // Proportional gain for obstacle avoidance (from reference)
+#define kd_obs 10      // Derivative gain for obstacle avoidance (from reference)
 
 PDcontroller pd_line(kp_line, kd_line, minOutput, maxOutput);
 PDcontroller pd_obs(kp_obs, kd_obs, minOutput, maxOutput);
@@ -52,9 +52,9 @@ RobotState currentState = LINE_FOLLOWING;
 
 // Obstacle avoidance parameters
 #define OBSTACLE_DISTANCE 15  // Distance in cm to detect obstacles
-#define WALL_DISTANCE 10     // Distance to maintain from wall while wall following
+#define WALL_DISTANCE 10.0    // Distance to maintain from wall while wall following
 #define TURN_SPEED 100       // Speed for turning
-#define FORWARD_SPEED 100    // Base speed for forward movement
+#define FORWARD_SPEED 400    // Base speed for forward movement (from reference)
 
 void calibrateSensors()
 {
@@ -190,9 +190,23 @@ void wallFollowing()
   // Get PD controller output
   double pdOutput = pd_obs.update(error, 0);
   
-  // Set motor speeds
+  // Set motor speeds with base speed
   int leftSpeed = baseSpeed + pdOutput;
   int rightSpeed = baseSpeed - pdOutput;
+  
+  // Ensure speeds stay within bounds
+  leftSpeed = constrain(leftSpeed, minOutput, maxOutput);
+  rightSpeed = constrain(rightSpeed, minOutput, maxOutput);
+  
+  // Debug printing
+  Serial.print("Wall Distance: ");
+  Serial.print(wallDist);
+  Serial.print(" | PDout: ");
+  Serial.print(pdOutput);
+  Serial.print(" | Left Speed: ");
+  Serial.print(leftSpeed);
+  Serial.print(" | Right Speed: ");
+  Serial.println(rightSpeed);
   
   motors.setSpeeds(leftSpeed, rightSpeed);
 }
@@ -214,7 +228,7 @@ void detectBlackLine()
 void setup() {
   Serial.begin(9600);
   servo.attach(5);
-  servo.write(90); // turn servo forward
+  servo.write(90); // turn servo forward for line following
   delay(2000);
 
   calibrateSensors();
@@ -228,6 +242,7 @@ void loop() {
   switch (currentState) {
     case LINE_FOLLOWING:
       Serial.println("State: LINE_FOLLOWING");
+      servo.write(90); // Ensure sonar is facing forward
       lineFollowing();
       
       // Check for obstacles
@@ -242,6 +257,7 @@ void loop() {
       // Turn right to avoid obstacle
       motors.setSpeeds(TURN_SPEED, -TURN_SPEED);
       delay(1000);
+      servo.write(180); // Turn sonar to side for wall following
       currentState = WALL_FOLLOWING;
       break;
       
@@ -252,6 +268,7 @@ void loop() {
       // Check for black line to return to line following
       detectBlackLine();
       if (isOnBlack) {
+        servo.write(90); // Turn sonar back to forward for line following
         currentState = LINE_FOLLOWING;
       }
       break;
