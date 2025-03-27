@@ -188,33 +188,56 @@ void lineFollowing()
 
 void wallFollowing()
 {
-  wallDist = sonar.readDist();
+  // Read sonar multiple times to ensure we get a valid reading
+  float readings[3];
+  for(int i = 0; i < 3; i++) {
+    readings[i] = sonar.readDist();
+    delay(50); // Small delay between readings
+  }
   
-  // Calculate error from desired wall distance
-  double error = wallDist - WALL_DISTANCE;
+  // Use the median reading to avoid outliers
+  wallDist = readings[1]; // Middle reading
   
-  // Get PD controller output
-  double pdOutput = pd_obs.update(error, 0);
+  // Debug printing for sonar readings
+  Serial.print("Sonar Readings: ");
+  Serial.print(readings[0]);
+  Serial.print(", ");
+  Serial.print(readings[1]);
+  Serial.print(", ");
+  Serial.println(readings[2]);
   
-  // Set motor speeds with base speed
-  int leftSpeed = baseSpeed + pdOutput;
-  int rightSpeed = baseSpeed - pdOutput;
-  
-  // Ensure speeds stay within bounds
-  leftSpeed = constrain(leftSpeed, minOutput, maxOutput);
-  rightSpeed = constrain(rightSpeed, minOutput, maxOutput);
-  
-  // Debug printing
-  Serial.print("Wall Distance: ");
-  Serial.print(wallDist);
-  Serial.print(" | PDout: ");
-  Serial.print(pdOutput);
-  Serial.print(" | Left Speed: ");
-  Serial.print(leftSpeed);
-  Serial.print(" | Right Speed: ");
-  Serial.println(rightSpeed);
-  
-  motors.setSpeeds(leftSpeed, rightSpeed);
+  // Only proceed if we have a valid reading
+  if (wallDist > 0) {
+    // Calculate error from desired wall distance
+    double error = wallDist - WALL_DISTANCE;
+    
+    // Get PD controller output
+    double pdOutput = pd_obs.update(error, 0);
+    
+    // Set motor speeds with base speed
+    int leftSpeed = baseSpeed + pdOutput;
+    int rightSpeed = baseSpeed - pdOutput;
+    
+    // Ensure speeds stay within bounds
+    leftSpeed = constrain(leftSpeed, minOutput, maxOutput);
+    rightSpeed = constrain(rightSpeed, minOutput, maxOutput);
+    
+    // Debug printing
+    Serial.print("Wall Distance: ");
+    Serial.print(wallDist);
+    Serial.print(" | PDout: ");
+    Serial.print(pdOutput);
+    Serial.print(" | Left Speed: ");
+    Serial.print(leftSpeed);
+    Serial.print(" | Right Speed: ");
+    Serial.println(rightSpeed);
+    
+    motors.setSpeeds(leftSpeed, rightSpeed);
+  } else {
+    // If no valid reading, stop and wait
+    motors.setSpeeds(0, 0);
+    Serial.println("No valid sonar reading - stopping");
+  }
 }
 
 void detectBlackLine()
@@ -236,6 +259,17 @@ void setup() {
   servo.attach(5);
   servo.write(90); // turn servo forward for line following
   delay(2000);
+
+  // Test sonar readings
+  Serial.println("Testing sonar readings...");
+  for(int i = 0; i < 5; i++) {
+    float dist = sonar.readDist();
+    Serial.print("Sonar reading ");
+    Serial.print(i);
+    Serial.print(": ");
+    Serial.println(dist);
+    delay(100);
+  }
 
   // calibrateSensors();
 }
@@ -340,6 +374,9 @@ void detectBlackLine()
 }
 */
 
+// adjust the gains to that the difference between left and right wheel speeds is less drastic in wall following momde. right now it can be 0, the min wheel speed should be 40 when in wall mode.
+
+// in wall following the sonar is not getting a reading. it outputs 0
 
 //alright now we have the issue where we are deticing the line immeditely as the robot entered wall following. adjust the code so it has to move forward always before exiting wall following.
 // with this setup, when the robot switches to from line, to wall following. It is fucked up. When we detect the wall, we need to stop. rotate the servoleft, rotate the robot right. Then wait 1 sec. and begin wall following.
