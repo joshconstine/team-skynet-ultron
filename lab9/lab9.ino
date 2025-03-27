@@ -43,7 +43,9 @@ int distFromWall = 10;
 enum RobotState {
   LINE_FOLLOWING,
   OBSTACLE_DETECTED,
-  TURNING,
+  ROTATING_SERVO,
+  ROTATING_ROBOT,
+  WAITING,
   WALL_FOLLOWING,
   RETURNING_TO_LINE
 };
@@ -231,7 +233,7 @@ void setup() {
   servo.write(90); // turn servo forward for line following
   delay(2000);
 
-  calibrateSensors();
+  // calibrateSensors();
 }
 
 void loop() {
@@ -254,10 +256,28 @@ void loop() {
       
     case OBSTACLE_DETECTED:
       Serial.println("State: OBSTACLE_DETECTED");
-      // Turn right to avoid obstacle
+      motors.setSpeeds(0, 0); // Stop
+      currentState = ROTATING_SERVO;
+      break;
+      
+    case ROTATING_SERVO:
+      Serial.println("State: ROTATING_SERVO");
+      servo.write(180); // Turn sonar to side
+      delay(500); // Wait for servo to rotate
+      currentState = ROTATING_ROBOT;
+      break;
+      
+    case ROTATING_ROBOT:
+      Serial.println("State: ROTATING_ROBOT");
       motors.setSpeeds(TURN_SPEED, -TURN_SPEED);
-      delay(1000);
-      servo.write(180); // Turn sonar to side for wall following
+      delay(800); // Rotate 90 degrees right
+      motors.setSpeeds(0, 0);
+      currentState = WAITING;
+      break;
+      
+    case WAITING:
+      Serial.println("State: WAITING");
+      delay(1000); // Wait 1 second before starting wall following
       currentState = WALL_FOLLOWING;
       break;
       
@@ -268,7 +288,9 @@ void loop() {
       // Check for black line to return to line following
       detectBlackLine();
       if (isOnBlack) {
+        motors.setSpeeds(0, 0); // Stop before rotating servo
         servo.write(90); // Turn sonar back to forward for line following
+        delay(500); // Wait for servo to rotate
         currentState = LINE_FOLLOWING;
       }
       break;
@@ -310,3 +332,5 @@ void detectBlackLine()
     }
 }
 */
+
+// with this setup, when the robot switches to from line, to wall following. It is fucked up. When we detect the wall, we need to stop. rotate the servoleft, rotate the robot right. Then wait 1 sec. and begin wall following.
