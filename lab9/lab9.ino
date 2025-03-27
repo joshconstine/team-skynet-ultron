@@ -58,7 +58,6 @@ RobotState currentState = LINE_FOLLOWING;
 
 void calibrateSensors()
 {
-  // Copy your calibrateSensors() function from lab 8
   Serial.println("Starting sensor calibration...");
 
   // Clear old values
@@ -67,7 +66,7 @@ void calibrateSensors()
     lineSensorValues[i] = 0;
   }
 
-  // Turn 90° LEFT
+  // --- Turn 90° LEFT ---
   Serial.println("Turning 90° LEFT...");
   motors.setSpeeds(-calibrationSpeed, calibrationSpeed);
   delay(3500);
@@ -83,40 +82,101 @@ void calibrateSensors()
     Serial.println(lineSensorValues[i]);
   }
 
-  // Return to CENTER from Left
+  // --- Return to CENTER from Left ---
   Serial.println("Returning to CENTER orientation...");
   motors.setSpeeds(calibrationSpeed, -calibrationSpeed);
   delay(3500); 
   motors.setSpeeds(0, 0);  
   Serial.println("Returned to CENTER. Reading sensors...");
+
+  lineSensors.read(lineSensorValues);
+  for (int i = 0; i < 5; i++) {
+    Serial.print("  Sensor ");
+    Serial.print(i);
+    Serial.print(": ");
+    Serial.println(lineSensorValues[i]);
+  }
+
+  // --- Turn 90° RIGHT from center ---
+  Serial.println("Turning 90° RIGHT...");
+  motors.setSpeeds(calibrationSpeed, -calibrationSpeed);
+  delay(3500);
+  motors.setSpeeds(0, 0);
+  Serial.println("Finished 90° RIGHT turn. Reading sensors...");
+
+  lineSensors.read(lineSensorValues);
+  for (int i = 0; i < 5; i++) {
+    Serial.print("  Sensor ");
+    Serial.print(i);
+    Serial.print(": ");
+    Serial.println(lineSensorValues[i]);
+  }
+
+  // --- Return to CENTER from Right ---
+  Serial.println("Returning to CENTER orientation...");
+  motors.setSpeeds(-calibrationSpeed, calibrationSpeed);
+  delay(3500); 
+  motors.setSpeeds(0, 0);
+  Serial.println("Returned to CENTER. Reading sensors...");
+
+  lineSensors.read(lineSensorValues);
+  for (int i = 0; i < 5; i++) {
+    Serial.print("  Sensor ");
+    Serial.print(i);
+    Serial.print(": ");
+    Serial.println(lineSensorValues[i]);
+  }
+
+  // Final stop
+  motors.setSpeeds(0, 0);
+  Serial.println("Calibration finished.");
+  delay(1000);
 }
 
 void lineFollowing()
 {
+  // Read the line sensor values
   lineSensors.read(lineSensorValues);
-  
-  // Calculate weighted average position
-  long sum = 0;
-  long sumWeight = 0;
-  
+
+  // Calculate the position of the line using the weighted sum method
+  int lineCenter = 0;
+  int totalWeight = 0;
+
   for (int i = 0; i < 5; i++) {
-    sum += (long)lineSensorValues[i] * (i * 1000);
-    sumWeight += lineSensorValues[i];
+    lineCenter += lineSensorValues[i] * i;
+    totalWeight += lineSensorValues[i];
   }
+
+  robotPosition = lineCenter / 5;
   
-  // Calculate position (0-4000)
-  robotPosition = sumWeight == 0 ? 2000 : sum / sumWeight;
-  
-  // Calculate error from center
-  double error = robotPosition - lineCenter;
-  
-  // Get PD controller output
-  double pdOutput = pd_line.update(error, 0);
-  
-  // Set motor speeds
-  int leftSpeed = baseSpeed + pdOutput;
-  int rightSpeed = baseSpeed - pdOutput;
-  
+  // Print out the computed line center and robot position
+  Serial.print("lineCenter: ");
+  Serial.print(lineCenter);
+  Serial.print(" | robotPosition: ");
+  Serial.println(robotPosition);
+
+  // Use the PD controller to compute the control output
+  double controlOutput = pd_line.update(robotPosition, 2700);  // Target value is 2700
+
+  // Print out the PD controller output
+  Serial.print("controlOutput: ");
+  Serial.println(controlOutput);
+
+  // Adjust the robot's speed based on the control output
+  int leftSpeed = baseSpeed + controlOutput;
+  int rightSpeed = baseSpeed - controlOutput;
+
+  // Ensure the robot's speed stays within bounds
+  leftSpeed = constrain(leftSpeed, minOutput, maxOutput);
+  rightSpeed = constrain(rightSpeed, minOutput, maxOutput);
+
+  // Print final motor speeds
+  Serial.print("Left Speed: ");
+  Serial.print(leftSpeed);
+  Serial.print(" | Right Speed: ");
+  Serial.println(rightSpeed);
+
+  // Set the motor speeds
   motors.setSpeeds(leftSpeed, rightSpeed);
 }
 
