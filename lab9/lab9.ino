@@ -58,6 +58,10 @@ RobotState currentState = LINE_FOLLOWING;
 #define TURN_SPEED 100       // Speed for turning
 #define FORWARD_SPEED 400    // Base speed for forward movement (from reference)
 
+// Add new variables for wall following transition
+unsigned long wallFollowingStartTime = 0;
+const unsigned long MIN_WALL_FOLLOWING_TIME = 5000; // Minimum time to wall follow before checking for line (2 seconds)
+
 void calibrateSensors()
 {
   Serial.println("Starting sensor calibration...");
@@ -278,6 +282,7 @@ void loop() {
     case WAITING:
       Serial.println("State: WAITING");
       delay(1000); // Wait 1 second before starting wall following
+      wallFollowingStartTime = millis(); // Record start time of wall following
       currentState = WALL_FOLLOWING;
       break;
       
@@ -285,13 +290,15 @@ void loop() {
       Serial.println("State: WALL_FOLLOWING");
       wallFollowing();
       
-      // Check for black line to return to line following
-      detectBlackLine();
-      if (isOnBlack) {
-        motors.setSpeeds(0, 0); // Stop before rotating servo
-        servo.write(90); // Turn sonar back to forward for line following
-        delay(500); // Wait for servo to rotate
-        currentState = LINE_FOLLOWING;
+      // Only check for black line after minimum wall following time
+      if (millis() - wallFollowingStartTime >= MIN_WALL_FOLLOWING_TIME) {
+        detectBlackLine();
+        if (isOnBlack) {
+          motors.setSpeeds(0, 0); // Stop before rotating servo
+          servo.write(90); // Turn sonar back to forward for line following
+          delay(500); // Wait for servo to rotate
+          currentState = LINE_FOLLOWING;
+        }
       }
       break;
   }
@@ -333,4 +340,6 @@ void detectBlackLine()
 }
 */
 
+
+//alright now we have the issue where we are deticing the line immeditely as the robot entered wall following. adjust the code so it has to move forward always before exiting wall following.
 // with this setup, when the robot switches to from line, to wall following. It is fucked up. When we detect the wall, we need to stop. rotate the servoleft, rotate the robot right. Then wait 1 sec. and begin wall following.
