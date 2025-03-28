@@ -16,8 +16,12 @@ Sonar sonar(4);
 #define baseSpeed 100
 #define kp_line 2.0    // Proportional gain for line following
 #define kd_line 1.0    // Derivative gain for line following
-#define kp_obs 55      // Proportional gain for obstacle avoidance (from reference)
-#define kd_obs 10      // Derivative gain for obstacle avoidance (from reference)
+#define kp_obs 15      // Further reduced for smoother control
+#define kd_obs 3       // Further reduced for smoother control
+#define minWallSpeed 40 // Minimum speed for wall following
+#define maxWallSpeed 100 // Maximum speed for wall following
+#define WALL_DISTANCE 10.0    // Distance to maintain from wall while wall following
+#define WALL_TOLERANCE 1.0    // Acceptable deviation from target distance
 
 PDcontroller pd_line(kp_line, kd_line, minOutput, maxOutput);
 PDcontroller pd_obs(kp_obs, kd_obs, minOutput, maxOutput);
@@ -53,8 +57,7 @@ enum RobotState {
 RobotState currentState = LINE_FOLLOWING;
 
 // Obstacle avoidance parameters
-#define OBSTACLE_DISTANCE 15  // Distance in cm to detect obstacles
-#define WALL_DISTANCE 10.0    // Distance to maintain from wall while wall following
+#define OBSTACLE_DISTANCE 10  // Distance in cm to detect obstacles
 #define TURN_SPEED 100       // Speed for turning
 #define FORWARD_SPEED 400    // Base speed for forward movement (from reference)
 
@@ -218,13 +221,15 @@ void wallFollowing()
     int leftSpeed = baseSpeed + pdOutput;
     int rightSpeed = baseSpeed - pdOutput;
     
-    // Ensure speeds stay within bounds
-    leftSpeed = constrain(leftSpeed, minOutput, maxOutput);
-    rightSpeed = constrain(rightSpeed, minOutput, maxOutput);
+    // Ensure speeds stay within bounds and maintain minimum speed
+    leftSpeed = constrain(leftSpeed, minWallSpeed, maxWallSpeed);
+    rightSpeed = constrain(rightSpeed, minWallSpeed, maxWallSpeed);
     
     // Debug printing
     Serial.print("Wall Distance: ");
     Serial.print(wallDist);
+    Serial.print(" | Error: ");
+    Serial.print(error);
     Serial.print(" | PDout: ");
     Serial.print(pdOutput);
     Serial.print(" | Left Speed: ");
@@ -374,9 +379,11 @@ void detectBlackLine()
 }
 */
 
+
+// closer but it still does a shit time following the wall. it needs to maintain a goal distance of 10 cm from the walll
 // adjust the gains to that the difference between left and right wheel speeds is less drastic in wall following momde. right now it can be 0, the min wheel speed should be 40 when in wall mode.
 
 // in wall following the sonar is not getting a reading. it outputs 0
 
 //alright now we have the issue where we are deticing the line immeditely as the robot entered wall following. adjust the code so it has to move forward always before exiting wall following.
-// with this setup, when the robot switches to from line, to wall following. It is fucked up. When we detect the wall, we need to stop. rotate the servoleft, rotate the robot right. Then wait 1 sec. and begin wall following.
+// with this setup, when the robot switches to from linVe, to wall following. It is fucked up. When we detect the wall, we need to stop. rotate the servoleft, rotate the robot right. Then wait 1 sec. and begin wall following.
