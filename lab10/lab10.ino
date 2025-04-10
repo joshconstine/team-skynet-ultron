@@ -138,3 +138,47 @@ void movement(){
   }
  
 }
+
+void estimate_position() {
+  float x_est = 0.0;
+  float y_est = 0.0;
+  float angle_est = 0.0;
+
+  for (uint8_t i = 0; i < N_particles; i++) {
+    x_est += particle.particles[i].probability * particle.particles[i].x;
+    y_est += particle.particles[i].probability * particle.particles[i].y;
+    angle_est += particle.particles[i].probability * particle.particles[i].angle;
+  }
+
+  // Normalize angle to [0, 2π]
+  while (angle_est > 2 * PI) {
+    angle_est -= 2 * PI;
+  }
+  while (angle_est < 0) {
+    angle_est += 2 * PI;
+  }
+
+  Serial.print("Iteration: ");
+  Serial.println(iter);
+  Serial.print("Estimated Position: (");
+  Serial.print(x_est);
+  Serial.print(", ");
+  Serial.print(y_est);
+  Serial.print("), Angle: ");
+  Serial.println(angle_est);
+
+  for (uint8_t i = 0; i < N_particles; i++) {
+    Serial.print("Particle ");
+    Serial.print(i);
+    Serial.print(": (");
+    Serial.print(particle.particles[i].x);
+    Serial.print(", ");
+    Serial.print(particle.particles[i].y);
+    Serial.print("), Angle: ");
+    Serial.print(particle.particles[i].angle);
+    Serial.print(", Probability: ");
+    Serial.println(particle.particles[i].probability);
+  }
+
+  iter++;
+}
