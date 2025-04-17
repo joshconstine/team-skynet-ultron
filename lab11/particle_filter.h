@@ -5,6 +5,8 @@
 #include "sonar.h"
 using namespace Pololu3piPlus32U4;
 
+enum MoveCommand { MOVE_FORWARD, TURN_LEFT, TURN_RIGHT, TURN_AROUND };
+
 class ParticleFilter{
   public:
     ParticleFilter(int lenOfMap, int num_particles, float translation_variance, float rotation_variance, float measurement_variance);
@@ -13,6 +15,14 @@ class ParticleFilter{
     void resample(float maxprob);
     void print_particles();
     void estimate_position();
+
+    // // New Code: Added decision‑making based on sonar readings
+    MoveCommand decide_action(float frontDist);
+
+    // New Code: added confidence checking for stopping
+    bool is_confident(float threshold = 0.99f);
+
+
     struct Particle{
       public:
           float x;
@@ -32,7 +42,6 @@ class ParticleFilter{
     float _x_est;
     float _y_est;
     float _angle_est;
-    
     int _num_particles;
     Map _mp;
     Sonar _sonar = Sonar(4);

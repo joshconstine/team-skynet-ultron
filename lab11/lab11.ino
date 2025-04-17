@@ -4,6 +4,7 @@ using namespace Pololu3piPlus32U4;
 #include "particle_filter.h" //Uncomment after importing your particle filter files from Lab 10
 #include "odometry.h"
 #include "Map.h"
+#include "sonar.h"
 
 #define PI 3.14159
 
@@ -22,8 +23,9 @@ using namespace Pololu3piPlus32U4;
 
 Motors motorsP;
 Encoders encoders;
+Sonar sonar(4);
 
-Odometry odometry(diaL, diaR, w, nL, nR);
+Odometry odometry(diaL, diaR, w, nL, nR, gearRatio, false);
 ParticleFilter particle(lenOfMap, N_particles, move_noise, rotate_noise, ultra_noise);
 
 uint8_t iter =0;
@@ -53,6 +55,7 @@ void setup() {
 }
 
 void loop() {
+  particle.is_confident();
   movement();
 
   //Get odometer readings  
@@ -66,23 +69,32 @@ void loop() {
   //Propagate particles by using move_particles.
   //Parameters are change from current and past odometer values 
   //TODO: Put code under here 
-  
-  // Estimate motion
-  float dx, dy, dtheta = x - x_last, y - y_last, theta - theta_last;
+  float dx = x - x_last;
+  float dy = y - y_last;
+  float dtheta = theta - theta_last;
   particle.move_particles(dx, dy, dtheta);
-
 
   //Measaure, estimation, and resample
   //Calculate particle's posterior probabilities, calculate estimated robot's position, and resample
   //TODO: Put code under here 
   particle.measure();
 
-
   // Display all particle locations and estimated robot location on screen   
   //TODO: Put code under here 
   particle.print_particles();
-  
-    
+  if(iter > 10 && particle.is_confident())
+  {
+    motorsP.setSpeeds(0, 0);
+    while(true);
+  }
+
+  if(iter > 10 && particle.is_confident())
+  {
+    motorsP.setSpeeds(0, 0);
+    while(true);
+  }
+
+
   //save last odometer reading
   //TODO: Fill in "..."
   x_last = x;
@@ -98,17 +110,37 @@ void loop() {
 //Movement Algorithm
 //TODO: Implement a movement algorithm that will allow your robot to autonomously move throughout the field. 
 void movement(){
-  float front_dist = particle._sonar.readDist();
+/* read front sonar */
+  float front = sonar.readDist();          // cm
 
-  if (front_dist < 24) {
-    // Turn in place to the left
-    motorsP.setSpeeds(-50, 50);
-    delay(500);
-    motorsP.setSpeeds(0, 0);
-  } else {
-    // Move forward
-    motorsP.setSpeeds(50, 50);
-    delay(500);
-    motorsP.setSpeeds(0, 0);
+  /* ask PF for a movement decision */
+  MoveCommand cmd = particle.decide_action(front);
+
+  switch (cmd) {
+
+    case MOVE_FORWARD:                     // drive 1/2 cell
+      motorsP.setSpeeds(100, 100);
+      delay(500);
+      break;
+
+    case TURN_LEFT:                        // 90° left
+      motorsP.setSpeeds(-150, 150);
+      delay(350);
+      break;
+
+    case TURN_RIGHT:                       // 90° right
+      motorsP.setSpeeds(150,-150);
+      delay(350);
+      break;
+
+    case TURN_AROUND:                      // 180° U‑turn
+      motorsP.setSpeeds(150,-150);
+      delay(850);                          // 2× the 90° time
+      break;
   }
+
+
+
+  motorsP.setSpeeds(0, 0);  
+ 
 }
