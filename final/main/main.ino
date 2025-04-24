@@ -43,8 +43,8 @@ bool isOnBlack = false;
 // Wall following variables
 double wallDist = 0;
 const double WALL_DISTANCE = 6.0; // cm
-const int baseSpeed = 100;
-const int calibationSpeed = 100;
+const int baseSpeed = 75;
+const int calibrationSpeed = 100;
 #define kp_obs 6     // Proportional gain for obstacle avoidance
 #define kd_obs 3 
 
@@ -56,6 +56,7 @@ Buzzer buzzer;
 OLED display;
 BumpSensors bumpSensors;
 Sonar sonar(4);
+
 PDcontroller pd_obs(kp_obs, kd_obs, minOutput, maxOutput);
 
 // Constants
