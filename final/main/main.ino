@@ -92,8 +92,12 @@ void loop() {
 }
 
 void wanderState() {
+
+    //check if on black line
+    detectBlackLine();
+
   // Check for trash (using bump sensors as example)
-  if (bumpSensors.read() != 0) {
+  if (isOnBlack) {
     currentState = CELEBRATION;
     return;
   }
@@ -104,20 +108,9 @@ void wanderState() {
     return;
   }
 
-  // Gather sensor data and avoid obstacles
-  lineSensors.read(lineSensorValues);
+
   
-  // Simple line following with obstacle avoidance
-  if (lineSensorValues[2] > 500) { // Center sensor sees line
-    motors.setSpeeds(WANDER_SPEED, WANDER_SPEED);
-  } else if (lineSensorValues[1] > 500) { // Left sensor sees line
-    motors.setSpeeds(-WANDER_SPEED, WANDER_SPEED);
-  } else if (lineSensorValues[3] > 500) { // Right sensor sees line
-    motors.setSpeeds(WANDER_SPEED, -WANDER_SPEED);
-  } else {
-    // Random wandering if no line detected
-    motors.setSpeeds(WANDER_SPEED, WANDER_SPEED);
-  }
+
 }
 
 void celebrationState() {
@@ -140,34 +133,36 @@ void celebrationState() {
   // Increment trash count and return to wander
   trashCount++;
   currentState = WANDER;
+  
+  isOnBlack = false;
 }
 
 void returnHomeState() {
   // Check if we're at home (using line sensors as example)
   lineSensors.read(lineSensorValues);
   
-  if (lineSensorValues[0] > 500 && lineSensorValues[4] > 500) { // Both outer sensors see line
-    if (!atHome) {
-      atHome = true;
-      buzzer.play("L16 cdegreg4");
-      display.clear();
-      display.print("Home!");
-    }
-    motors.setSpeeds(0, 0);
-    return;
-  }
+//   if (lineSensorValues[0] > 500 && lineSensorValues[4] > 500) { // Both outer sensors see line
+//     if (!atHome) {
+//       atHome = true;
+//       buzzer.play("L16 cdegreg4");
+//       display.clear();
+//       display.print("Home!");
+//     }
+//     motors.setSpeeds(0, 0);
+//     return;
+//   }
 
-  // Follow line back to home
-  if (lineSensorValues[2] > 500) { // Center sensor sees line
-    motors.setSpeeds(WANDER_SPEED, WANDER_SPEED);
-  } else if (lineSensorValues[1] > 500) { // Left sensor sees line
-    motors.setSpeeds(-WANDER_SPEED, WANDER_SPEED);
-  } else if (lineSensorValues[3] > 500) { // Right sensor sees line
-    motors.setSpeeds(WANDER_SPEED, -WANDER_SPEED);
-  } else {
-    // Search for line if lost
-    motors.setSpeeds(WANDER_SPEED/2, -WANDER_SPEED/2);
-  }
+//   // Follow line back to home
+//   if (lineSensorValues[2] > 500) { // Center sensor sees line
+//     motors.setSpeeds(WANDER_SPEED, WANDER_SPEED);
+//   } else if (lineSensorValues[1] > 500) { // Left sensor sees line
+//     motors.setSpeeds(-WANDER_SPEED, WANDER_SPEED);
+//   } else if (lineSensorValues[3] > 500) { // Right sensor sees line
+//     motors.setSpeeds(WANDER_SPEED, -WANDER_SPEED);
+//   } else {
+//     // Search for line if lost
+//     motors.setSpeeds(WANDER_SPEED/2, -WANDER_SPEED/2);
+//   }
 }
 
 void calibrateSensors() {
