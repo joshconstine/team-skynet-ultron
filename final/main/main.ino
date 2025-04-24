@@ -42,11 +42,11 @@ bool isOnBlack = false;
 
 // Wall following variables
 double wallDist = 0;
-const double WALL_DISTANCE = 10.0; // cm
+const double WALL_DISTANCE = 6.0; // cm
 const int baseSpeed = 100;
-const int calibrationSpeed = 100;
-#define kp_obs 0.8     // Proportional gain for obstacle avoidance
-#define kd_obs 0.2 
+const int calibationSpeed = 100;
+#define kp_obs 6     // Proportional gain for obstacle avoidance
+#define kd_obs 3 
 
 // Robot components
 LineSensors lineSensors;
@@ -108,8 +108,10 @@ void wanderState() {
     return;
   }
 
-
+  // do wall following 
+  wallFollowing();
   
+  delay(400);
 
 }
 
