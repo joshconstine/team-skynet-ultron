@@ -15,6 +15,7 @@
 #include "sonar.h"
 #include "Pcontroller.h"
 #include "PDcontroller.h" 
+#include "my_robot.h"
 
 
 
@@ -31,6 +32,12 @@ enum RobotState {
 RobotState currentState = WANDER;
 int trashCount = 0;
 bool atHome = false;
+
+// Speed constants
+const float BASE_SPEED = 75;  
+const float TURN_SPEED = 75;  
+const float WALL_SPEED = 75;  
+
 #define minOutput -100
 #define maxOutput 100
 
@@ -50,7 +57,7 @@ const int calibrationSpeed = 100;
 
 // Robot components
 LineSensors lineSensors;
-Motors motors;
+MyRobot robot(BASE_SPEED); // Initialize with base speed
 Servo servo;
 Buzzer buzzer;
 OLED display;
@@ -117,13 +124,11 @@ void wanderState() {
 }
 
 void celebrationState() {
-  // Stop motors
-  motors.setSpeeds(0, 0);
+  // Stop robot
+  robot.halt();
 
   // Spin 360 degrees
-  motors.setSpeeds(SPIN_SPEED, -SPIN_SPEED);
-  delay(CELEBRATION_DURATION);
-  motors.setSpeeds(0, 0);
+  robot.turn_right(2.0, TURN_SPEED); // Turn right for 2 seconds at turn speed
 
   // Beep
   buzzer.play("L16 cdegreg4");
@@ -135,37 +140,14 @@ void celebrationState() {
   
   // Increment trash count and return to wander
   trashCount++;
-  currentState = WANDER;
-  
   isOnBlack = false;
+  currentState = WANDER;
 }
 
 void returnHomeState() {
-  // Check if we're at home (using line sensors as example)
-  lineSensors.read(lineSensorValues);
-  
-//   if (lineSensorValues[0] > 500 && lineSensorValues[4] > 500) { // Both outer sensors see line
-//     if (!atHome) {
-//       atHome = true;
-//       buzzer.play("L16 cdegreg4");
-//       display.clear();
-//       display.print("Home!");
-//     }
-//     motors.setSpeeds(0, 0);
-//     return;
-//   }
-
-//   // Follow line back to home
-//   if (lineSensorValues[2] > 500) { // Center sensor sees line
-//     motors.setSpeeds(WANDER_SPEED, WANDER_SPEED);
-//   } else if (lineSensorValues[1] > 500) { // Left sensor sees line
-//     motors.setSpeeds(-WANDER_SPEED, WANDER_SPEED);
-//   } else if (lineSensorValues[3] > 500) { // Right sensor sees line
-//     motors.setSpeeds(WANDER_SPEED, -WANDER_SPEED);
-//   } else {
-//     // Search for line if lost
-//     motors.setSpeeds(WANDER_SPEED/2, -WANDER_SPEED/2);
-//   }
+  // For now, just wander until we find home
+  wallFollowing();
+  delay(400);
 }
 
 void calibrateSensors() {
@@ -178,9 +160,8 @@ void calibrateSensors() {
 
   // --- Turn 90° LEFT ---
   Serial.println("Turning 90° LEFT...");
-  motors.setSpeeds(-calibrationSpeed, calibrationSpeed);
-  delay(3500);
-  motors.setSpeeds(0, 0);  
+  robot.turn_left(1.0, TURN_SPEED); // Turn left for 1 second at turn speed
+  robot.halt();
   Serial.println("Finished 90° LEFT turn. Reading sensors...");
   
   // Read and print sensor values at 90° left orientation
@@ -194,9 +175,8 @@ void calibrateSensors() {
 
   // --- Return to CENTER from Left ---
   Serial.println("Returning to CENTER orientation...");
-  motors.setSpeeds(calibrationSpeed, -calibrationSpeed);
-  delay(3500); 
-  motors.setSpeeds(0, 0);  
+  robot.turn_right(1.0, TURN_SPEED); // Turn right for 1 second at turn speed
+  robot.halt();
   Serial.println("Returned to CENTER. Reading sensors...");
 
   lineSensors.read(lineSensorValues);
@@ -209,9 +189,8 @@ void calibrateSensors() {
 
   // --- Turn 90° RIGHT from center ---
   Serial.println("Turning 90° RIGHT...");
-  motors.setSpeeds(calibrationSpeed, -calibrationSpeed);
-  delay(3500);
-  motors.setSpeeds(0, 0);
+  robot.turn_right(1.0, TURN_SPEED); // Turn right for 1 second at turn speed
+  robot.halt();
   Serial.println("Finished 90° RIGHT turn. Reading sensors...");
 
   lineSensors.read(lineSensorValues);
@@ -224,9 +203,8 @@ void calibrateSensors() {
 
   // --- Return to CENTER from Right ---
   Serial.println("Returning to CENTER orientation...");
-  motors.setSpeeds(-calibrationSpeed, calibrationSpeed);
-  delay(3500); 
-  motors.setSpeeds(0, 0);
+  robot.turn_left(1.0, TURN_SPEED); // Turn left for 1 second at turn speed
+  robot.halt();
   Serial.println("Returned to CENTER. Reading sensors...");
 
   lineSensors.read(lineSensorValues);
@@ -238,7 +216,7 @@ void calibrateSensors() {
   }
 
   // Final stop
-  motors.setSpeeds(0, 0);
+  robot.halt();
   Serial.println("Calibration finished.");
   delay(1000);
 }
@@ -252,11 +230,17 @@ void wallFollowing() {
   // Get PD controller output
   double pdOutput = pd_obs.update(error, 0);
   
-  // Set motor speeds
-  int leftSpeed = baseSpeed + pdOutput;
-  int rightSpeed = baseSpeed - pdOutput;
-  
-  motors.setSpeeds(leftSpeed, rightSpeed);
+  // Set motor speeds using motion primitives
+  if (pdOutput > 0) {
+    // Need to turn right
+    robot.turn_right_and_forward(0.1, WALL_SPEED, pdOutput/100.0);
+  } else if (pdOutput < 0) {
+    // Need to turn left
+    robot.turn_left_and_forward(0.1, WALL_SPEED, -pdOutput/100.0);
+  } else {
+    // Go straight
+    robot.forward(0.1, WALL_SPEED);
+  }
 }
 
 void detectBlackLine() {
