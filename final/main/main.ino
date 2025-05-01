@@ -11,6 +11,7 @@
 
 using namespace Pololu3piPlus32U4;
 
+// Robot states
 enum RobotState {
   WANDER,
   CELEBRATION,
@@ -27,22 +28,28 @@ bool isOnBlack = false;
 #define SPIN_SPEED 100
 #define MOVE_SPEED 100
 #define TURN_DELAY 500
-#define MOVE_DELAY 1000
+#define MOVE_DELAY 2000
 
 // Maze dimensions: 80x180 cm → 8x18 grid (10 cm cells)
 const int MAZE_WIDTH = 8;
 const int MAZE_HEIGHT = 18;
 
+// Track visited cells and trash locations
 bool visited[MAZE_HEIGHT][MAZE_WIDTH] = {false};
+bool trashFound[MAZE_HEIGHT][MAZE_WIDTH] = {false};
 int robotX = 0;
 int robotY = 17; // Start in bottom-left corner
+
+// Store trash positions for return path
+struct Position {
+  int x, y;
+};
+Position trashPositions[MAX_TRASH];
+int trashPositionsCount = 0;
 
 enum Direction { NORTH, EAST, SOUTH, WEST };
 Direction heading = NORTH;
 
-struct Position {
-  int x, y;
-};
 Position stack[MAZE_WIDTH * MAZE_HEIGHT];
 int stackSize = 0;
 
@@ -116,7 +123,7 @@ void moveForwardOneCell() {
 // Obstacle detection
 bool wallInFront() {
   double dist = sonar.readDist();
-  return dist < 7.0; // consider wall if less than 7cm
+  return dist < 10.0; // consider wall if less than 7cm
 }
 
 // Coordinate validity
@@ -175,7 +182,7 @@ void wanderState() {
     return;
   }
 
-  if (isOnBlack) {
+  if (isOnBlack && !trashFound[robotY][robotX]) {
     currentState = CELEBRATION;
     return;
   }
@@ -194,7 +201,7 @@ void wanderState() {
     int nx = current.x + dx[dir];
     int ny = current.y + dy[dir];
 
-    if (isValid(nx, ny) && !visited[ny][nx]) {
+    if (isValid(nx, ny) && !visited[ny][nx] && !trashFound[ny][nx]) {
       faceDirection((Direction)dir);
       if (!wallInFront()) {
         moveForwardOneCell();
@@ -220,11 +227,22 @@ void wanderState() {
 
 // Celebration
 void celebrationState() {
+  // Record trash position
+  if (trashPositionsCount < MAX_TRASH) {
+    trashPositions[trashPositionsCount] = {robotX, robotY};
+    trashPositionsCount++;
+  }
+  
+  // Mark this position as having trash
+  trashFound[robotY][robotX] = true;
+  
+  // Stop and celebrate
   motors.setSpeeds(0, 0);
   motors.setSpeeds(SPIN_SPEED, -SPIN_SPEED);
   delay(CELEBRATION_DURATION);
   motors.setSpeeds(0, 0);
 
+  // Update display
   display.clear();
   trashCount++;
   display.print("Trash: ");
