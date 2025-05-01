@@ -123,7 +123,10 @@ void moveForwardOneCell() {
 // Obstacle detection
 bool wallInFront() {
   double dist = sonar.readDist();
-  return dist < 10.0; // consider wall if less than 7cm
+  Serial.print("Sonar Distance: ");
+  Serial.print(dist);
+  Serial.println(" cm");
+  return dist < 10.0; // consider wall if less than 10cm
 }
 
 // Coordinate validity
@@ -144,6 +147,30 @@ void detectBlackLine() {
   isOnBlack = false;
 }
 
+// Print the current map state
+void printMap() {
+  Serial.println("\n=== Current Map State ===");
+  Serial.println("Legend: . = unvisited, X = wall, V = visited, T = trash");
+  Serial.println("------------------------");
+  
+  for (int y = 0; y < MAZE_HEIGHT; y++) {
+    for (int x = 0; x < MAZE_WIDTH; x++) {
+      if (x == robotX && y == robotY) {
+        Serial.print("R"); // Robot position
+      } else if (trashFound[y][x]) {
+        Serial.print("T"); // Trash location
+      } else if (visited[y][x]) {
+        Serial.print("V"); // Visited cell
+      } else {
+        Serial.print("."); // Unvisited cell
+      }
+      Serial.print(" ");
+    }
+    Serial.println();
+  }
+  Serial.println("------------------------");
+}
+
 // Setup
 void setup() {
   Serial.begin(9600);
@@ -160,6 +187,28 @@ void setup() {
 
 // Main loop
 void loop() {
+  // Print current state and map
+  Serial.print("\nCurrent State: ");
+  switch (currentState) {
+    case WANDER: Serial.println("WANDER"); break;
+    case CELEBRATION: Serial.println("CELEBRATION"); break;
+    case RETURN_HOME: Serial.println("RETURN_HOME"); break;
+  }
+  
+  Serial.print("Robot Position: (");
+  Serial.print(robotX);
+  Serial.print(", ");
+  Serial.print(robotY);
+  Serial.print("), Heading: ");
+  switch (heading) {
+    case NORTH: Serial.println("NORTH"); break;
+    case EAST: Serial.println("EAST"); break;
+    case SOUTH: Serial.println("SOUTH"); break;
+    case WEST: Serial.println("WEST"); break;
+  }
+  
+  printMap();
+  
   switch (currentState) {
     case WANDER:
       wanderState();
@@ -171,6 +220,8 @@ void loop() {
       returnHomeState();
       break;
   }
+  
+  delay(1000); // Add delay to make serial output readable
 }
 
 // DFS traversal
