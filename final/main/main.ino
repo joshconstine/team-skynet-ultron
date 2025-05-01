@@ -27,7 +27,7 @@ bool isOnBlack = false;
 #define CELEBRATION_DURATION 3200
 #define SPIN_SPEED 100
 #define MOVE_SPEED 100
-#define TURN_DELAY 900
+#define TURN_DELAY 850
 #define MOVE_DELAY 2200
 
 // Maze dimensions: 80x180 cm → 8x18 grid (10 cm cells)
