@@ -4,6 +4,8 @@
 #include <Pololu3piPlus32U4OLED.h>
 #include <Pololu3piPlus32U4Buzzer.h>
 #include <Pololu3piPlus32U4BumpSensors.h>
+#include <Servo.h>
+
 #include "sonar.h"
 #include "PDcontroller.h"
 
@@ -49,6 +51,7 @@ uint16_t lineDetectionValues[5];
 LineSensors lineSensors;
 Motors motors;
 OLED display;
+Servo servo;
 Buzzer buzzer;
 BumpSensors bumpSensors;
 Sonar sonar(4);
@@ -139,6 +142,9 @@ void setup() {
   Serial.begin(9600);
   bumpSensors.calibrate();
   // lineSensors.initFiveSensors();
+  servo.attach(5);
+
+  servo.write(90);
 
   display.clear();
   display.print("Trash: 0");
