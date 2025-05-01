@@ -24,10 +24,10 @@ bool atHome = false;
 bool isOnBlack = false;
 
 #define MAX_TRASH 3
-#define CELEBRATION_DURATION 3000
+#define CELEBRATION_DURATION 3200
 #define SPIN_SPEED 100
 #define MOVE_SPEED 100
-#define TURN_DELAY 500
+#define TURN_DELAY 900
 #define MOVE_DELAY 2000
 
 // Maze dimensions: 80x180 cm → 8x18 grid (10 cm cells)
@@ -126,7 +126,7 @@ bool wallInFront() {
   Serial.print("Sonar Distance: ");
   Serial.print(dist);
   Serial.println(" cm");
-  return dist < 10.0; // consider wall if less than 10cm
+  return dist < 11.0; // consider wall if less than 10cm
 }
 
 // Coordinate validity
