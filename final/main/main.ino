@@ -1,84 +1,152 @@
 #include <Pololu3piPlus32U4.h>
-#include <Pololu3piPlus32U4BumpSensors.h>
-#include <Pololu3piPlus32U4Buttons.h>
-#include <Pololu3piPlus32U4Buzzer.h>
-#include <Pololu3piPlus32U4Encoders.h>
-#include <Pololu3piPlus32U4IMU.h>
-#include <Pololu3piPlus32U4IMU_declaration.h>
-#include <Pololu3piPlus32U4LCD.h>
 #include <Pololu3piPlus32U4LineSensors.h>
 #include <Pololu3piPlus32U4Motors.h>
 #include <Pololu3piPlus32U4OLED.h>
-
-
-#include <Servo.h>
+#include <Pololu3piPlus32U4Buzzer.h>
+#include <Pololu3piPlus32U4BumpSensors.h>
 #include "sonar.h"
-#include "Pcontroller.h"
-#include "PDcontroller.h" 
-
-
+#include "PDcontroller.h"
 
 using namespace Pololu3piPlus32U4;
 
-// Robot states
 enum RobotState {
   WANDER,
   CELEBRATION,
   RETURN_HOME
 };
 
-// Global variables
 RobotState currentState = WANDER;
 int trashCount = 0;
 bool atHome = false;
-#define minOutput -100
-#define maxOutput 100
-
-
-// Sensor arrays
-uint16_t lineSensorValues[5];
-uint16_t lineDetectionValues[5];
 bool isOnBlack = false;
 
-// Wall following variables
-double wallDist = 0;
-const double WALL_DISTANCE = 6.0; // cm
-const int baseSpeed = 75;
-const int calibrationSpeed = 100;
-#define kp_obs 6     // Proportional gain for obstacle avoidance
-#define kd_obs 3 
+#define MAX_TRASH 3
+#define CELEBRATION_DURATION 3000
+#define SPIN_SPEED 100
+#define MOVE_SPEED 100
+#define TURN_DELAY 500
+#define MOVE_DELAY 1000
 
-// Robot components
+// Maze dimensions: 80x180 cm → 8x18 grid (10 cm cells)
+const int MAZE_WIDTH = 8;
+const int MAZE_HEIGHT = 18;
+
+bool visited[MAZE_HEIGHT][MAZE_WIDTH] = {false};
+int robotX = 0;
+int robotY = 17; // Start in bottom-left corner
+
+enum Direction { NORTH, EAST, SOUTH, WEST };
+Direction heading = NORTH;
+
+struct Position {
+  int x, y;
+};
+Position stack[MAZE_WIDTH * MAZE_HEIGHT];
+int stackSize = 0;
+
+uint16_t lineDetectionValues[5];
+
 LineSensors lineSensors;
 Motors motors;
-Servo servo;
-Buzzer buzzer;
 OLED display;
+Buzzer buzzer;
 BumpSensors bumpSensors;
 Sonar sonar(4);
 
+#define kp_obs 6
+#define kd_obs 3
+#define minOutput -100
+#define maxOutput 100
 PDcontroller pd_obs(kp_obs, kd_obs, minOutput, maxOutput);
 
-// Constants
-const int CELEBRATION_DURATION = 3000; // ms
-const int SPIN_SPEED = 100; // PWM value
-const int WANDER_SPEED = 100; // PWM value
-const int MAX_TRASH = 3;
-
-void setup() {
-  Serial.begin(9600);
-  
-
-  bumpSensors.calibrate();
-  display.clear();
-  display.print("Trash: 0");
-  
-  // Calibrate sensors
-  calibrateSensors();
+// Stack functions
+void push(Position pos) {
+  if (stackSize < MAZE_WIDTH * MAZE_HEIGHT)
+    stack[stackSize++] = pos;
 }
 
+Position pop() {
+  if (stackSize > 0)
+    return stack[--stackSize];
+  return {robotX, robotY};
+}
+
+bool isStackEmpty() {
+  return stackSize == 0;
+}
+
+// Direction handling
+void turnLeft90() {
+  motors.setSpeeds(-MOVE_SPEED, MOVE_SPEED);
+  delay(TURN_DELAY);
+  motors.setSpeeds(0, 0);
+  heading = (Direction)((heading + 3) % 4);
+}
+
+void turnRight90() {
+  motors.setSpeeds(MOVE_SPEED, -MOVE_SPEED);
+  delay(TURN_DELAY);
+  motors.setSpeeds(0, 0);
+  heading = (Direction)((heading + 1) % 4);
+}
+
+void faceDirection(Direction target) {
+  while (heading != target) {
+    turnRight90();
+  }
+}
+
+// Movement
+void moveForwardOneCell() {
+  motors.setSpeeds(MOVE_SPEED, MOVE_SPEED);
+  delay(MOVE_DELAY);
+  motors.setSpeeds(0, 0);
+
+  switch (heading) {
+    case NORTH: robotY--; break;
+    case SOUTH: robotY++; break;
+    case EAST:  robotX++; break;
+    case WEST:  robotX--; break;
+  }
+}
+
+// Obstacle detection
+bool wallInFront() {
+  double dist = sonar.readDist();
+  return dist < 7.0; // consider wall if less than 7cm
+}
+
+// Coordinate validity
+bool isValid(int x, int y) {
+  return x >= 0 && x < MAZE_WIDTH && y >= 0 && y < MAZE_HEIGHT;
+}
+
+// Detect black line (e.g., trash)
+void detectBlackLine() {
+  lineSensors.read(lineDetectionValues);
+  const int blackThreshold = 1500;
+  for (int i = 0; i < 5; i++) {
+    if (lineDetectionValues[i] > blackThreshold) {
+      isOnBlack = true;
+      return;
+    }
+  }
+  isOnBlack = false;
+}
+
+// Setup
+void setup() {
+  Serial.begin(9600);
+  bumpSensors.calibrate();
+  // lineSensors.initFiveSensors();
+
+  display.clear();
+  display.print("Trash: 0");
+  delay(1000);
+}
+
+// Main loop
 void loop() {
-  // State machine
   switch (currentState) {
     case WANDER:
       wanderState();
@@ -92,182 +160,79 @@ void loop() {
   }
 }
 
+// DFS traversal
 void wanderState() {
+  detectBlackLine();
 
-    //check if on black line
-    detectBlackLine();
-
-  // Check for trash (using bump sensors as example)
-  if (isOnBlack) {
-    currentState = CELEBRATION;
-    return;
-  }
-
-  // Check if we've found all trash
   if (trashCount >= MAX_TRASH) {
     currentState = RETURN_HOME;
     return;
   }
 
-  // do wall following 
-  wallFollowing();
-  
-  delay(400);
+  if (isOnBlack) {
+    currentState = CELEBRATION;
+    return;
+  }
 
+  if (isStackEmpty()) {
+    push({robotX, robotY});
+  }
+
+  Position current = pop();
+  visited[current.y][current.x] = true;
+
+  const int dx[4] = {0, 1, 0, -1};  // N, E, S, W
+  const int dy[4] = {-1, 0, 1, 0};
+
+  for (int dir = 0; dir < 4; dir++) {
+    int nx = current.x + dx[dir];
+    int ny = current.y + dy[dir];
+
+    if (isValid(nx, ny) && !visited[ny][nx]) {
+      faceDirection((Direction)dir);
+      if (!wallInFront()) {
+        moveForwardOneCell();
+        push({nx, ny});
+        return;
+      }
+    }
+  }
+
+  // Dead end, backtrack
+  if (!isStackEmpty()) {
+    Position prev = pop();
+    int dx = prev.x - robotX;
+    int dy = prev.y - robotY;
+    if (dx == 1) faceDirection(EAST);
+    else if (dx == -1) faceDirection(WEST);
+    else if (dy == 1) faceDirection(SOUTH);
+    else if (dy == -1) faceDirection(NORTH);
+    moveForwardOneCell();
+    push(prev);
+  }
 }
 
+// Celebration
 void celebrationState() {
-  // Stop motors
   motors.setSpeeds(0, 0);
-
-  // Spin 360 degrees
   motors.setSpeeds(SPIN_SPEED, -SPIN_SPEED);
   delay(CELEBRATION_DURATION);
   motors.setSpeeds(0, 0);
 
-  // Beep
-  buzzer.play("L16 cdegreg4");
-
-  // Update display
   display.clear();
+  trashCount++;
   display.print("Trash: ");
   display.print(trashCount);
-  
-  // Increment trash count and return to wander
-  trashCount++;
+
+  isOnBlack = false;
   currentState = WANDER;
-  
-  isOnBlack = false;
 }
 
+// Return home (basic placeholder)
 void returnHomeState() {
-  // Check if we're at home (using line sensors as example)
-  lineSensors.read(lineSensorValues);
-  
-//   if (lineSensorValues[0] > 500 && lineSensorValues[4] > 500) { // Both outer sensors see line
-//     if (!atHome) {
-//       atHome = true;
-//       buzzer.play("L16 cdegreg4");
-//       display.clear();
-//       display.print("Home!");
-//     }
-//     motors.setSpeeds(0, 0);
-//     return;
-//   }
-
-//   // Follow line back to home
-//   if (lineSensorValues[2] > 500) { // Center sensor sees line
-//     motors.setSpeeds(WANDER_SPEED, WANDER_SPEED);
-//   } else if (lineSensorValues[1] > 500) { // Left sensor sees line
-//     motors.setSpeeds(-WANDER_SPEED, WANDER_SPEED);
-//   } else if (lineSensorValues[3] > 500) { // Right sensor sees line
-//     motors.setSpeeds(WANDER_SPEED, -WANDER_SPEED);
-//   } else {
-//     // Search for line if lost
-//     motors.setSpeeds(WANDER_SPEED/2, -WANDER_SPEED/2);
-//   }
-}
-
-void calibrateSensors() {
-  Serial.println("Starting sensor calibration...");
-
-  // Clear old values
-  for (int i = 0; i < 5; i++) {
-    lineSensorValues[i] = 0;
-  }
-
-  // --- Turn 90° LEFT ---
-  Serial.println("Turning 90° LEFT...");
-  motors.setSpeeds(-calibrationSpeed, calibrationSpeed);
-  delay(3500);
-  motors.setSpeeds(0, 0);  
-  Serial.println("Finished 90° LEFT turn. Reading sensors...");
-  
-  // Read and print sensor values at 90° left orientation
-  lineSensors.read(lineSensorValues);
-  for (int i = 0; i < 5; i++) {
-    Serial.print("  Sensor ");
-    Serial.print(i);
-    Serial.print(": ");
-    Serial.println(lineSensorValues[i]);
-  }
-
-  // --- Return to CENTER from Left ---
-  Serial.println("Returning to CENTER orientation...");
-  motors.setSpeeds(calibrationSpeed, -calibrationSpeed);
-  delay(3500); 
-  motors.setSpeeds(0, 0);  
-  Serial.println("Returned to CENTER. Reading sensors...");
-
-  lineSensors.read(lineSensorValues);
-  for (int i = 0; i < 5; i++) {
-    Serial.print("  Sensor ");
-    Serial.print(i);
-    Serial.print(": ");
-    Serial.println(lineSensorValues[i]);
-  }
-
-  // --- Turn 90° RIGHT from center ---
-  Serial.println("Turning 90° RIGHT...");
-  motors.setSpeeds(calibrationSpeed, -calibrationSpeed);
-  delay(3500);
   motors.setSpeeds(0, 0);
-  Serial.println("Finished 90° RIGHT turn. Reading sensors...");
-
-  lineSensors.read(lineSensorValues);
-  for (int i = 0; i < 5; i++) {
-    Serial.print("  Sensor ");
-    Serial.print(i);
-    Serial.print(": ");
-    Serial.println(lineSensorValues[i]);
-  }
-
-  // --- Return to CENTER from Right ---
-  Serial.println("Returning to CENTER orientation...");
-  motors.setSpeeds(-calibrationSpeed, calibrationSpeed);
-  delay(3500); 
-  motors.setSpeeds(0, 0);
-  Serial.println("Returned to CENTER. Reading sensors...");
-
-  lineSensors.read(lineSensorValues);
-  for (int i = 0; i < 5; i++) {
-    Serial.print("  Sensor ");
-    Serial.print(i);
-    Serial.print(": ");
-    Serial.println(lineSensorValues[i]);
-  }
-
-  // Final stop
-  motors.setSpeeds(0, 0);
-  Serial.println("Calibration finished.");
-  delay(1000);
-}
-
-void wallFollowing() {
-  wallDist = sonar.readDist();
-  
-  // Calculate error from desired wall distance
-  double error = wallDist - WALL_DISTANCE;
-  
-  // Get PD controller output
-  double pdOutput = pd_obs.update(error, 0);
-  
-  // Set motor speeds
-  int leftSpeed = baseSpeed + pdOutput;
-  int rightSpeed = baseSpeed - pdOutput;
-  
-  motors.setSpeeds(leftSpeed, rightSpeed);
-}
-
-void detectBlackLine() {
-  lineSensors.read(lineDetectionValues);
-  const int blackThreshold = 1500;
-  
-  for (int i = 0; i < 5; i++) {
-    if (lineDetectionValues[i] > blackThreshold) {
-      isOnBlack = true;
-      return;
-    }
-  }
-  isOnBlack = false;
+  display.clear();
+  display.print("Returning...");
+  delay(3000);
+  currentState = WANDER;
 }
